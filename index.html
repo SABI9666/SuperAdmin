@@ -170,6 +170,7 @@ code.sql{display:block;background:#0a0e16;border:1px solid var(--border);border-
     <button class="nav-btn" data-view="monitor"><span class="ico">📡</span> Monitoring</button>
     <button class="nav-btn" data-view="notes"><span class="ico">📝</span> Notes</button>
     <button class="nav-btn" data-view="reminders"><span class="ico">⏰</span> Reminders <span class="badge" id="remBadge"></span></button>
+    <button class="nav-btn" data-view="special"><span class="ico">📣</span> Laxora Notice <span class="badge" id="specBadge"></span></button>
     <button class="nav-btn" data-view="settings"><span class="ico">⚙️</span> Settings</button>
     <div class="spacer"></div>
     <div class="sync-pill"><span class="dot" id="syncDot"></span><span id="syncLabel">Local storage</span></div>
@@ -198,7 +199,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /* ---------------- state ---------------- */
-let state = { apps: [], notes: [], reminders: [] };
+let state = { apps: [], notes: [], reminders: [], special_reminders: [] };
 let view = 'dashboard';
 let appFilter = '', appCatFilter = 'All';
 let autoTimer = null, clockTimer = null;
@@ -293,9 +294,18 @@ function normalizeSupaUrl(url){
 
 async function loadAll(){
   try {
-    const [apps, notes, reminders] = await Promise.all([DB().list('apps'), DB().list('notes'), DB().list('reminders')]);
-    state = { apps, notes, reminders };
+    const [apps, notes, reminders, special_reminders] = await Promise.all([
+      DB().list('apps'), DB().list('notes'), DB().list('reminders'), listSpecial()
+    ]);
+    state = { apps, notes, reminders, special_reminders };
   } catch (e) { toast('Failed to load data: ' + e.message, 'err'); }
+}
+
+// Special reminders live in Supabase so the Laxora frontend can read them.
+// On local storage they still work for previewing the feature.
+async function listSpecial(){
+  try { return await DB().list('special_reminders'); }
+  catch { return []; } // table may not exist yet on older projects
 }
 
 /* =====================================================================
@@ -421,8 +431,18 @@ function render(){
   else if (view === 'monitor') m.innerHTML = renderMonitor();
   else if (view === 'notes') m.innerHTML = renderNotes();
   else if (view === 'reminders') m.innerHTML = renderReminders();
+  else if (view === 'special') m.innerHTML = renderSpecial();
   else if (view === 'settings') m.innerHTML = renderSettings();
   reminderTick();
+  updateSpecBadge();
+}
+
+function updateSpecBadge(){
+  const b = $('#specBadge');
+  if (!b) return;
+  const n = state.special_reminders.filter(s => s.active !== false).length;
+  b.style.display = n ? 'inline-block' : 'none';
+  b.textContent = n;
 }
 
 /* ---------------- Dashboard ---------------- */
@@ -603,6 +623,52 @@ function renderReminders(){
   ${!sorted.length ? '<div class="empty"><div class="big">⏰</div>No reminders. Add one and I’ll nag you at exactly the right time.</div>' : ''}`;
 }
 
+/* ---------------- Special reminder (Laxora broadcast) ---------------- */
+const SPEC_LEVELS = {
+  info:    { label: 'Info',    icon: 'ℹ️', color: 'var(--accent)' },
+  warning: { label: 'Warning', icon: '⚠️', color: 'var(--amber)' },
+  urgent:  { label: 'Urgent',  icon: '🚨', color: 'var(--red)' },
+};
+function renderSpecial(){
+  const list = [...state.special_reminders].sort((a,b) => new Date(b.created_at||0) - new Date(a.created_at||0));
+  const activeCount = list.filter(s => s.active !== false).length;
+  return `
+  <div class="pagehead">
+    <div><h1>📣 Laxora Notice</h1><p>Broadcast a special reminder that pops up inside the Laxora billing frontend and stays there until you delete it here.</p></div>
+    <button class="btn" onclick="openSpecialModal()">+ New special reminder</button>
+  </div>
+
+  ${!supa ? `<div class="card" style="margin-bottom:16px;border-color:rgba(255,180,84,.4)">
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <span style="font-size:18px">⚠️</span>
+      <div><b>Connect Supabase to broadcast live.</b><p class="hint" style="margin-top:4px">These notices are stored locally right now, so the Laxora frontend can't see them. Add your Supabase project in <b>Settings</b> — Laxora reads the same project to show the popup.</p></div>
+    </div>
+  </div>` : `<div class="card" style="margin-bottom:16px">
+    <div class="mini-item">📡 <b>${activeCount}</b>&nbsp;active notice(s) currently showing in the Laxora billing frontend.</div>
+  </div>`}
+
+  ${list.map(s => {
+    const lv = SPEC_LEVELS[s.level] || SPEC_LEVELS.info;
+    const off = s.active === false;
+    return `
+    <div class="rem-item ${off?'done':''}" style="border-left:4px solid ${lv.color};align-items:flex-start">
+      <div class="rem-info">
+        <div class="rem-title" style="display:flex;align-items:center;gap:8px">
+          <span class="pill" style="background:${lv.color}22;color:${lv.color}">${lv.icon} ${lv.label}</span>
+          ${off ? '<span class="pill unknown">Paused</span>' : '<span class="pill online">● Live in Laxora</span>'}
+          ${esc(s.title || '')}
+        </div>
+        <div class="note-body" style="margin-top:8px;color:var(--text)">${esc(s.message)}</div>
+        <div class="rem-when">Created ${fmtDate(s.created_at)}</div>
+      </div>
+      <button class="icon-btn" title="${off?'Show again':'Pause (hide without deleting)'}" onclick="toggleSpecial('${s.id}')">${off?'▶️':'⏸️'}</button>
+      <button class="icon-btn" title="Edit" onclick="openSpecialModal('${s.id}')">✏️</button>
+      <button class="icon-btn" title="Delete — removes it from Laxora" onclick="deleteSpecial('${s.id}')">🗑️</button>
+    </div>`;
+  }).join('')}
+  ${!list.length ? `<div class="empty"><div class="big">📣</div>No special reminder set.<br>The Laxora frontend shows its normal screen until you broadcast one here.</div>` : ''}`;
+}
+
 /* ---------------- Settings ---------------- */
 const SCHEMA_SQL = `-- Run this in Supabase: SQL Editor → New query
 create table if not exists apps (
@@ -631,14 +697,26 @@ create table if not exists reminders (
   done boolean default false,
   created_at timestamptz default now()
 );
+-- Special reminders broadcast to the Laxora billing frontend.
+create table if not exists special_reminders (
+  id uuid primary key,
+  title text default '',
+  message text not null,
+  level text default 'info',
+  active boolean default true,
+  created_at timestamptz default now()
+);
 -- Personal single-user setup: allow access with the anon key.
 -- (Keep your project URL + anon key private, or add Supabase Auth later.)
 alter table apps enable row level security;
 alter table notes enable row level security;
 alter table reminders enable row level security;
+alter table special_reminders enable row level security;
 create policy "personal_all_apps" on apps for all using (true) with check (true);
 create policy "personal_all_notes" on notes for all using (true) with check (true);
-create policy "personal_all_reminders" on reminders for all using (true) with check (true);`;
+create policy "personal_all_reminders" on reminders for all using (true) with check (true);
+create policy "special_reminders_read" on special_reminders for select using (true);
+create policy "special_reminders_write" on special_reminders for all using (true) with check (true);`;
 
 function renderSettings(){
   const s = getSettings();
@@ -827,6 +905,64 @@ function askNotifPermission(silent){
   Notification.requestPermission().then(p => { if (p === 'granted' && !silent) toast('Notifications enabled 🔔', 'ok'); });
 }
 
+/* ---------------- Special reminder modal ---------------- */
+let selLevel = 'info';
+function openSpecialModal(id){
+  const s = id ? state.special_reminders.find(x => x.id === id) : null;
+  selLevel = s?.level || 'info';
+  openModal(`
+    <h2>${s ? 'Edit special reminder' : 'New special reminder'}</h2>
+    <p class="hint" style="margin-top:-10px;margin-bottom:16px">This pops up in the Laxora billing frontend for every user and stays until you delete it.</p>
+    <div class="field"><label>Title (optional)</label><input id="fSTitle" value="${esc(s?.title||'')}" placeholder="e.g. Scheduled maintenance"></div>
+    <div class="field"><label>Message</label><textarea id="fSMsg" rows="4" placeholder="What should Laxora users be told?">${esc(s?.message||'')}</textarea></div>
+    <div class="field"><label>Priority</label>
+      <div class="color-row" id="levelRow">
+        ${Object.entries(SPEC_LEVELS).map(([k,v]) => `
+          <button type="button" class="chip ${k===selLevel?'active':''}" data-level="${k}"
+            onclick="selLevel='${k}';document.querySelectorAll('#levelRow .chip').forEach(c=>c.classList.toggle('active',c.dataset.level==='${k}'))">
+            ${v.icon} ${v.label}
+          </button>`).join('')}
+      </div>
+    </div>
+    <div class="modal-acts">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn" onclick="saveSpecial('${s?.id||''}')">${s ? 'Save changes' : 'Broadcast to Laxora'}</button>
+    </div>`);
+  setTimeout(() => $('#fSMsg').focus(), 50);
+}
+async function saveSpecial(id){
+  const title = $('#fSTitle').value.trim();
+  const message = $('#fSMsg').value.trim();
+  if (!message) return toast('Please enter a message.', 'err');
+  try {
+    if (id){
+      const s = state.special_reminders.find(x => x.id === id);
+      Object.assign(s, { title, message, level: selLevel });
+      await DB().update('special_reminders', id, { title, message, level: selLevel });
+    } else {
+      const row = { id: uid(), title, message, level: selLevel, active: true, created_at: new Date().toISOString() };
+      await DB().insert('special_reminders', row);
+      state.special_reminders.unshift(row);
+    }
+    closeModal(); render();
+    toast(supa ? 'Broadcast live in Laxora 📣' : 'Saved locally — connect Supabase to go live.', supa ? 'ok' : '');
+  } catch(e){ toast('Save failed: ' + e.message, 'err'); }
+}
+async function toggleSpecial(id){
+  const s = state.special_reminders.find(x => x.id === id);
+  s.active = s.active === false; // flip: false→true, true/undefined→false
+  try { await DB().update('special_reminders', id, { active: s.active }); } catch(e){ toast(e.message,'err'); }
+  render();
+  toast(s.active ? 'Notice is live in Laxora again.' : 'Notice paused — hidden from Laxora.');
+}
+async function deleteSpecial(id){
+  if (!confirm('Delete this special reminder? It will disappear from the Laxora frontend.')) return;
+  state.special_reminders = state.special_reminders.filter(x => x.id !== id);
+  try { await DB().remove('special_reminders', id); } catch(e){ toast(e.message,'err'); }
+  render();
+  toast('Special reminder deleted.');
+}
+
 /* =====================================================================
    SETTINGS ACTIONS
    ===================================================================== */
@@ -857,9 +993,9 @@ async function disconnectSupabase(){
 async function pushLocalToSupabase(){
   if (!supa) return toast('Connect Supabase first.', 'err');
   try {
-    const [la, ln, lr] = await Promise.all([LocalDB.list('apps'), LocalDB.list('notes'), LocalDB.list('reminders')]);
+    const [la, ln, lr, ls] = await Promise.all([LocalDB.list('apps'), LocalDB.list('notes'), LocalDB.list('reminders'), LocalDB.list('special_reminders')]);
     let n = 0;
-    for (const [table, rows] of [['apps', la], ['notes', ln], ['reminders', lr]]){
+    for (const [table, rows] of [['apps', la], ['notes', ln], ['reminders', lr], ['special_reminders', ls]]){
       for (const row of rows){ const {error} = await supa.from(table).upsert(row); if (!error) n++; }
     }
     toast('Uploaded ' + n + ' item(s) to Supabase ⤴', 'ok');
@@ -880,7 +1016,7 @@ function importData(input){
   reader.onload = async () => {
     try {
       const data = JSON.parse(reader.result);
-      for (const t of ['apps','notes','reminders']){
+      for (const t of ['apps','notes','reminders','special_reminders']){
         for (const row of (data[t] || [])){
           if (!state[t].some(x => x.id === row.id)){
             await DB().insert(t, row);

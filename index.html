@@ -656,6 +656,7 @@ function renderSpecial(){
         <div class="rem-title" style="display:flex;align-items:center;gap:8px">
           <span class="pill" style="background:${lv.color}22;color:${lv.color}">${lv.icon} ${lv.label}</span>
           ${off ? '<span class="pill unknown">Paused</span>' : '<span class="pill online">● Live in Laxora</span>'}
+          ${s.target_shop ? `<span class="pill" style="background:rgba(63,214,208,.14);color:var(--cyan)">🎯 ${esc(s.target_shop)}</span>` : '<span class="pill unknown">🌐 All shops</span>'}
           ${esc(s.title || '')}
         </div>
         <div class="note-body" style="margin-top:8px;color:var(--text)">${esc(s.message)}</div>
@@ -703,9 +704,11 @@ create table if not exists special_reminders (
   title text default '',
   message text not null,
   level text default 'info',
+  target_shop text default '',
   active boolean default true,
   created_at timestamptz default now()
 );
+alter table special_reminders add column if not exists target_shop text default '';
 -- Personal single-user setup: allow access with the anon key.
 -- (Keep your project URL + anon key private, or add Supabase Auth later.)
 alter table apps enable row level security;
@@ -912,9 +915,13 @@ function openSpecialModal(id){
   selLevel = s?.level || 'info';
   openModal(`
     <h2>${s ? 'Edit special reminder' : 'New special reminder'}</h2>
-    <p class="hint" style="margin-top:-10px;margin-bottom:16px">This pops up in the Laxora billing frontend for every user and stays until you delete it.</p>
+    <p class="hint" style="margin-top:-10px;margin-bottom:16px">This pops up in the Laxora billing frontend and stays until you delete it.</p>
     <div class="field"><label>Title (optional)</label><input id="fSTitle" value="${esc(s?.title||'')}" placeholder="e.g. Scheduled maintenance"></div>
     <div class="field"><label>Message</label><textarea id="fSMsg" rows="4" placeholder="What should Laxora users be told?">${esc(s?.message||'')}</textarea></div>
+    <div class="field"><label>Target shop (optional)</label>
+      <input id="fSShop" value="${esc(s?.target_shop||'')}" placeholder="e.g. Pradeeksha Technologies — leave blank for all shops">
+      <p class="hint">Only this shop sees the notice. Leave blank to show it in every shop. Matches the shop name shown in Laxora.</p>
+    </div>
     <div class="field"><label>Priority</label>
       <div class="color-row" id="levelRow">
         ${Object.entries(SPEC_LEVELS).map(([k,v]) => `
@@ -933,14 +940,15 @@ function openSpecialModal(id){
 async function saveSpecial(id){
   const title = $('#fSTitle').value.trim();
   const message = $('#fSMsg').value.trim();
+  const target_shop = $('#fSShop').value.trim();
   if (!message) return toast('Please enter a message.', 'err');
   try {
     if (id){
       const s = state.special_reminders.find(x => x.id === id);
-      Object.assign(s, { title, message, level: selLevel });
-      await DB().update('special_reminders', id, { title, message, level: selLevel });
+      Object.assign(s, { title, message, level: selLevel, target_shop });
+      await DB().update('special_reminders', id, { title, message, level: selLevel, target_shop });
     } else {
-      const row = { id: uid(), title, message, level: selLevel, active: true, created_at: new Date().toISOString() };
+      const row = { id: uid(), title, message, level: selLevel, target_shop, active: true, created_at: new Date().toISOString() };
       await DB().insert('special_reminders', row);
       state.special_reminders.unshift(row);
     }

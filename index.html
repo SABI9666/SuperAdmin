@@ -254,9 +254,31 @@ async function connectSupabase(){
     supa = null;
     $('#syncDot').classList.remove('on');
     $('#syncLabel').textContent = 'Local storage';
-    toast('Supabase connection failed — using local storage. ' + (e.message || ''), 'err');
+    toast('Supabase connection failed — using local storage. ' + friendlySupaError(e), 'err');
     return false;
   }
+}
+
+function friendlySupaError(e){
+  const m = (e && e.message) || '';
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m))
+    return 'Could not reach the server — check the Project URL (it should look like https://xxxx.supabase.co).';
+  if (/Invalid API key|JWSError|invalid signature|No API key/i.test(m))
+    return 'The API key is wrong — copy the full "anon public" or "publishable" key again.';
+  if (/relation .* does not exist|Could not find the table/i.test(m))
+    return 'Connected, but the tables are missing — run the SQL setup script in Supabase (SQL Editor).';
+  if (/Legacy API keys are disabled/i.test(m))
+    return 'Legacy keys are disabled on this project — use the "publishable" key (sb_publishable_...).';
+  return m || 'Unknown error.';
+}
+
+function normalizeSupaUrl(url){
+  url = url.trim();
+  // accept pasted REST/auth/storage endpoints and full URLs with paths
+  url = url.replace(/\/(rest|auth|storage|realtime|functions)\/v\d.*$/i, '');
+  url = url.replace(/\/+$/, '');
+  if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+  return url;
 }
 
 async function loadAll(){
@@ -617,7 +639,7 @@ function renderSettings(){
     <h3>☁️ Supabase backend (optional)</h3>
     <p class="hint" style="margin-bottom:14px">Without Supabase everything is saved in this browser (localStorage). Connect Supabase to sync your apps, notes and reminders across all your devices.</p>
     <div class="field"><label>Supabase project URL</label><input id="sbUrl" placeholder="https://xxxx.supabase.co" value="${esc(s.supabaseUrl||'')}"></div>
-    <div class="field"><label>Supabase anon key</label><input id="sbKey" type="password" placeholder="eyJhbGciOi…" value="${esc(s.supabaseKey||'')}"></div>
+    <div class="field"><label>Supabase anon / publishable key</label><input id="sbKey" type="password" placeholder="eyJhbGciOi…  or  sb_publishable_…" value="${esc(s.supabaseKey||'')}"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn" onclick="saveSupabase()">Save & connect</button>
       <button class="btn ghost" onclick="pushLocalToSupabase()">⤴ Upload local data to Supabase</button>
@@ -799,11 +821,15 @@ function askNotifPermission(silent){
    SETTINGS ACTIONS
    ===================================================================== */
 async function saveSupabase(){
+  const url = normalizeSupaUrl($('#sbUrl').value);
+  const key = $('#sbKey').value.trim().replace(/\s+/g, '');
+  if (!url || !key) return toast('Enter both URL and anon key.', 'err');
+  if (/^sb_secret_/i.test(key)) return toast('That is the SECRET key — never use it in the browser. Use the publishable key (sb_publishable_...) instead.', 'err');
+  if (!/^(eyJ|sb_publishable_)/i.test(key)) return toast('That key does not look right — it should start with "eyJ" (anon key) or "sb_publishable_".', 'err');
   const s = getSettings();
-  s.supabaseUrl = $('#sbUrl').value.trim().replace(/\/+$/, '');
-  s.supabaseKey = $('#sbKey').value.trim();
+  s.supabaseUrl = url;
+  s.supabaseKey = key;
   saveSettings(s);
-  if (!s.supabaseUrl || !s.supabaseKey) return toast('Enter both URL and anon key.', 'err');
   toast('Connecting to Supabase…');
   if (await connectSupabase()){
     toast('Connected to Supabase ✅ Loading cloud data…', 'ok');

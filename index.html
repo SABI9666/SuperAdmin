@@ -234,6 +234,8 @@ function DB(){ return supa ? SupaDB : LocalDB; }
 async function connectSupabase(){
   const s = getSettings();
   if (!s.supabaseUrl || !s.supabaseKey) return false;
+  const cleaned = normalizeSupaUrl(s.supabaseUrl);
+  if (cleaned !== s.supabaseUrl){ s.supabaseUrl = cleaned; saveSettings(s); }
   try {
     if (!window.supabase) {
       await new Promise((res, rej) => {
@@ -274,11 +276,19 @@ function friendlySupaError(e){
 
 function normalizeSupaUrl(url){
   url = url.trim();
-  // accept pasted REST/auth/storage endpoints and full URLs with paths
-  url = url.replace(/\/(rest|auth|storage|realtime|functions)\/v\d.*$/i, '');
-  url = url.replace(/\/+$/, '');
-  if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
-  return url;
+  if (!url) return '';
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  try {
+    const u = new URL(url);
+    // pasted the Supabase dashboard link? extract the project ref from it
+    const m = /(^|\.)supabase\.com$/i.test(u.hostname) && u.pathname.match(/\/project\/([a-z0-9]{15,30})/i);
+    if (m) return 'https://' + m[1] + '.supabase.co';
+    // pasted a REST/GraphQL/auth/db endpoint? keep only the project origin
+    const host = u.hostname.replace(/^db\./i, '');
+    return u.protocol + '//' + host + (u.port ? ':' + u.port : '');
+  } catch {
+    return url.replace(/\/+$/, '');
+  }
 }
 
 async function loadAll(){

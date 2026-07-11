@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Super Admin — Command Center</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👑</text></svg>">
+<style>
+:root{
+  --bg:#0b0f17; --bg2:#111826; --card:#151e2e; --card2:#1a2436;
+  --border:#243147; --text:#e8eefb; --muted:#8ea0bd; --dim:#5f7191;
+  --accent:#4f8cff; --accent2:#7c5cff; --green:#2fd47f; --red:#ff5c6c;
+  --amber:#ffb454; --cyan:#3fd6d0;
+  --radius:14px; --shadow:0 8px 30px rgba(0,0,0,.35);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+button{font-family:inherit;cursor:pointer}
+input,textarea,select{font-family:inherit;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 12px;font-size:14px;width:100%;outline:none;transition:border .15s}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+::placeholder{color:var(--dim)}
+a{color:var(--accent);text-decoration:none}
+
+/* ---------- Layout ---------- */
+.layout{display:flex;min-height:100vh}
+.sidebar{width:230px;background:var(--bg2);border-right:1px solid var(--border);padding:22px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh;flex-shrink:0}
+.logo{display:flex;align-items:center;gap:10px;padding:6px 10px 20px;font-weight:700;font-size:17px}
+.logo .crown{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:19px}
+.logo small{display:block;font-weight:500;color:var(--muted);font-size:11px}
+.nav-btn{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:10px;background:none;border:none;color:var(--muted);font-size:14px;width:100%;text-align:left;transition:all .15s}
+.nav-btn:hover{background:var(--card);color:var(--text)}
+.nav-btn.active{background:linear-gradient(135deg,rgba(79,140,255,.18),rgba(124,92,255,.14));color:var(--text);font-weight:600}
+.nav-btn .ico{width:20px;text-align:center}
+.nav-btn .badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:2px 7px;display:none}
+.sidebar .spacer{flex:1}
+.sync-pill{font-size:11px;color:var(--muted);padding:8px 12px;border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;gap:7px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex-shrink:0}
+.dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+.main{flex:1;padding:28px 34px;max-width:1250px;min-width:0}
+
+/* ---------- Header ---------- */
+.pagehead{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.pagehead h1{font-size:23px;font-weight:700}
+.pagehead p{color:var(--muted);font-size:13px;margin-top:3px}
+.btn{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:7px;transition:opacity .15s}
+.btn:hover{opacity:.88}
+.btn.ghost{background:var(--card);border:1px solid var(--border);color:var(--text)}
+.btn.small{padding:7px 13px;font-size:13px}
+.btn.danger{background:rgba(255,92,108,.14);border:1px solid rgba(255,92,108,.4);color:var(--red)}
+
+/* ---------- Cards / grids ---------- */
+.grid{display:grid;gap:16px}
+.stats{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:24px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px}
+.stat .lbl{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+.stat .val{font-size:28px;font-weight:700;margin-top:6px}
+.stat .sub{font-size:12px;color:var(--dim);margin-top:4px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.card h3{font-size:15px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.section-title{font-size:15px;font-weight:700;margin:26px 0 14px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-size:12px}
+
+/* ---------- App cards ---------- */
+.apps-grid{grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}
+.app-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;transition:transform .15s,border-color .15s;position:relative}
+.app-card:hover{transform:translateY(-2px);border-color:#33456b}
+.app-top{display:flex;align-items:flex-start;gap:13px;margin-bottom:12px}
+.app-icon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;flex-shrink:0}
+.app-name{font-weight:700;font-size:15px;word-break:break-word}
+.app-cat{font-size:11px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+.app-url{font-size:12px;color:var(--dim);word-break:break-all;margin-bottom:12px;min-height:16px}
+.app-status{display:flex;align-items:center;gap:7px;font-size:12px;margin-bottom:14px;color:var(--muted)}
+.app-actions{display:flex;gap:8px}
+.app-actions .btn{flex:1;justify-content:center}
+.icon-btn{background:none;border:none;color:var(--dim);font-size:15px;padding:5px;border-radius:7px;transition:all .15s}
+.icon-btn:hover{color:var(--text);background:var(--bg2)}
+.app-menu{position:absolute;top:12px;right:12px;display:flex;gap:2px}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600}
+.pill.online{background:rgba(47,212,127,.13);color:var(--green)}
+.pill.offline{background:rgba(255,92,108,.13);color:var(--red)}
+.pill.unknown{background:rgba(142,160,189,.13);color:var(--muted)}
+.pill.checking{background:rgba(255,180,84,.13);color:var(--amber)}
+
+/* ---------- Monitor table ---------- */
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:10px 12px;border-bottom:1px solid var(--border)}
+td{padding:13px 12px;border-bottom:1px solid rgba(36,49,71,.5);font-size:14px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--muted)}
+
+/* ---------- Notes ---------- */
+.notes-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.note-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s}
+.note-card:hover{border-color:#33456b}
+.note-card.pinned{border-color:rgba(255,180,84,.45);background:linear-gradient(180deg,rgba(255,180,84,.05),var(--card))}
+.note-title{font-weight:700;font-size:15px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.note-body{color:var(--muted);font-size:13.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word;flex:1}
+.note-foot{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--dim)}
+.note-foot .acts{display:flex;gap:2px}
+
+/* ---------- Reminders ---------- */
+.rem-item{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:15px 18px;margin-bottom:10px;transition:opacity .2s}
+.rem-item.done{opacity:.45}
+.rem-item.overdue{border-color:rgba(255,92,108,.5)}
+.rem-check{width:22px;height:22px;border-radius:50%;border:2px solid var(--dim);background:none;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;transition:all .15s}
+.rem-check.checked{background:var(--green);border-color:var(--green)}
+.rem-info{flex:1;min-width:0}
+.rem-title{font-weight:600;font-size:14.5px}
+.rem-item.done .rem-title{text-decoration:line-through}
+.rem-when{font-size:12px;color:var(--muted);margin-top:3px}
+.rem-when.overdue-txt{color:var(--red);font-weight:600}
+
+/* ---------- Modal ---------- */
+.modal-back{position:fixed;inset:0;background:rgba(4,8,15,.72);backdrop-filter:blur(3px);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:6vh 16px;overflow:auto}
+.modal-back.open{display:flex}
+.modal{background:var(--card2);border:1px solid var(--border);border-radius:16px;width:100%;max-width:480px;padding:26px;box-shadow:var(--shadow);animation:pop .18s ease}
+@keyframes pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
+.modal h2{font-size:18px;margin-bottom:20px}
+.field{margin-bottom:15px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-acts{display:flex;gap:10px;justify-content:flex-end;margin-top:22px}
+.color-row{display:flex;gap:8px;flex-wrap:wrap}
+.color-opt{width:32px;height:32px;border-radius:9px;border:2px solid transparent;cursor:pointer}
+.color-opt.sel{border-color:#fff;transform:scale(1.1)}
+
+/* ---------- Misc ---------- */
+.empty{text-align:center;padding:50px 20px;color:var(--dim)}
+.empty .big{font-size:40px;margin-bottom:12px}
+.toast-wrap{position:fixed;bottom:22px;right:22px;z-index:200;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--card2);border:1px solid var(--border);border-left:3px solid var(--accent);padding:13px 18px;border-radius:10px;font-size:13.5px;box-shadow:var(--shadow);animation:pop .18s ease;max-width:320px}
+.toast.err{border-left-color:var(--red)}
+.toast.ok{border-left-color:var(--green)}
+.two-col{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
+.quick-launch{display:flex;flex-wrap:wrap;gap:10px}
+.ql-btn{display:flex;align-items:center;gap:9px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:9px 14px;color:var(--text);font-size:13.5px;font-weight:600;transition:all .15s}
+.ql-btn:hover{border-color:var(--accent);transform:translateY(-1px)}
+.ql-ico{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
+.mini-list{display:flex;flex-direction:column;gap:9px}
+.mini-item{display:flex;gap:10px;align-items:center;font-size:13.5px;color:var(--muted)}
+.mini-item b{color:var(--text);font-weight:600}
+code.sql{display:block;background:#0a0e16;border:1px solid var(--border);border-radius:10px;padding:14px;font-size:12px;white-space:pre;overflow-x:auto;color:#9fd0ff;font-family:ui-monospace,Consolas,monospace;line-height:1.6}
+.hint{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.5}
+.filter-row{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+.filter-row input{max-width:260px}
+.chip{background:var(--bg2);border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:6px 14px;font-size:12.5px;font-weight:600;transition:all .15s}
+.chip.active{background:rgba(79,140,255,.15);border-color:var(--accent);color:var(--text)}
+.clock{font-size:13px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
+
+@media(max-width:920px){
+  .layout{flex-direction:column}
+  .sidebar{width:100%;height:auto;position:static;flex-direction:row;flex-wrap:wrap;align-items:center;padding:12px}
+  .sidebar .logo{padding:0 10px}
+  .nav-btn{width:auto}
+  .sidebar .spacer,.sync-pill{display:none}
+  .main{padding:18px}
+  .two-col{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="crown">👑</div>
+      <div>Super Admin<small>Personal Command Center</small></div>
+    </div>
+    <button class="nav-btn active" data-view="dashboard"><span class="ico">🏠</span> Dashboard</button>
+    <button class="nav-btn" data-view="apps"><span class="ico">🚀</span> My Applications</button>
+    <button class="nav-btn" data-view="monitor"><span class="ico">📡</span> Monitoring</button>
+    <button class="nav-btn" data-view="notes"><span class="ico">📝</span> Notes</button>
+    <button class="nav-btn" data-view="reminders"><span class="ico">⏰</span> Reminders <span class="badge" id="remBadge"></span></button>
+    <button class="nav-btn" data-view="settings"><span class="ico">⚙️</span> Settings</button>
+    <div class="spacer"></div>
+    <div class="sync-pill"><span class="dot" id="syncDot"></span><span id="syncLabel">Local storage</span></div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <main class="main" id="main"></main>
+</div>
+
+<!-- ================= MODALS ================= -->
+<div class="modal-back" id="modalBack">
+  <div class="modal" id="modalBox"></div>
+</div>
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+/* =====================================================================
+   SUPER ADMIN — personal command center
+   Data layer: localStorage by default, Supabase when configured.
+   ===================================================================== */
+
+const COLORS = ['#4f8cff','#7c5cff','#2fd47f','#ff5c6c','#ffb454','#3fd6d0','#f472b6','#a3e635'];
+const CATS = ['Web App','Admin Panel','API / Backend','Dashboard','Website','Tool','Other'];
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------------- state ---------------- */
+let state = { apps: [], notes: [], reminders: [] };
+let view = 'dashboard';
+let appFilter = '', appCatFilter = 'All';
+let autoTimer = null, clockTimer = null;
+
+/* ---------------- settings ---------------- */
+const SETTINGS_KEY = 'superadmin_settings';
+function getSettings(){ try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { return {}; } }
+function saveSettings(s){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
+
+/* =====================================================================
+   DATA LAYER  — swap between localStorage and Supabase transparently
+   ===================================================================== */
+let supa = null; // supabase client when connected
+
+const LocalDB = {
+  key: t => 'superadmin_' + t,
+  async list(t){ try { return JSON.parse(localStorage.getItem(this.key(t))) || []; } catch { return []; } },
+  async saveAll(t, rows){ localStorage.setItem(this.key(t), JSON.stringify(rows)); },
+  async insert(t, row){ const rows = await this.list(t); rows.push(row); await this.saveAll(t, rows); return row; },
+  async update(t, id, patch){ const rows = await this.list(t); const i = rows.findIndex(r => r.id === id); if (i > -1){ rows[i] = {...rows[i], ...patch}; await this.saveAll(t, rows); } },
+  async remove(t, id){ await this.saveAll(t, (await this.list(t)).filter(r => r.id !== id)); }
+};
+
+const SupaDB = {
+  async list(t){ const {data, error} = await supa.from(t).select('*').order('created_at', {ascending:false}); if (error) throw error; return data || []; },
+  async insert(t, row){ const {error} = await supa.from(t).insert(row); if (error) throw error; return row; },
+  async update(t, id, patch){ const {error} = await supa.from(t).update(patch).eq('id', id); if (error) throw error; },
+  async remove(t, id){ const {error} = await supa.from(t).delete().eq('id', id); if (error) throw error; }
+};
+
+function DB(){ return supa ? SupaDB : LocalDB; }
+
+async function connectSupabase(){
+  const s = getSettings();
+  if (!s.supabaseUrl || !s.supabaseKey) return false;
+  try {
+    if (!window.supabase) {
+      await new Promise((res, rej) => {
+        const sc = document.createElement('script');
+        sc.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+        sc.onload = res; sc.onerror = rej;
+        document.head.appendChild(sc);
+      });
+    }
+    supa = window.supabase.createClient(s.supabaseUrl, s.supabaseKey);
+    // probe
+    const {error} = await supa.from('apps').select('id').limit(1);
+    if (error) throw error;
+    $('#syncDot').classList.add('on');
+    $('#syncLabel').textContent = 'Supabase connected';
+    return true;
+  } catch (e) {
+    supa = null;
+    $('#syncDot').classList.remove('on');
+    $('#syncLabel').textContent = 'Local storage';
+    toast('Supabase connection failed — using local storage. ' + (e.message || ''), 'err');
+    return false;
+  }
+}
+
+async function loadAll(){
+  try {
+    const [apps, notes, reminders] = await Promise.all([DB().list('apps'), DB().list('notes'), DB().list('reminders')]);
+    state = { apps, notes, reminders };
+  } catch (e) { toast('Failed to load data: ' + e.message, 'err'); }
+}
+
+/* =====================================================================
+   FIRST-RUN SEED — the user's own apps, they just fill in the URLs
+   ===================================================================== */
+async function seedIfEmpty(){
+  if (supa) return; // never auto-seed a shared backend
+  if (localStorage.getItem('superadmin_seeded')) return;
+  const seeds = [
+    { name:'SteelConnect Web',   category:'Web App',     color:'#4f8cff' },
+    { name:'SteelConnect Admin', category:'Admin Panel', color:'#7c5cff' },
+    { name:'Laxora Web',         category:'Web App',     color:'#2fd47f' },
+    { name:'Laxora Admin',       category:'Admin Panel', color:'#ffb454' },
+  ];
+  for (const s of seeds) {
+    await LocalDB.insert('apps', { id: uid(), name: s.name, url: '', category: s.category, color: s.color,
+      last_status: 'unknown', last_latency: null, last_checked: null, created_at: new Date().toISOString() });
+  }
+  localStorage.setItem('superadmin_seeded', '1');
+}
+
+/* =====================================================================
+   MONITORING — browser-side reachability check
+   (no-cors fetch: resolves if the server answered at all, rejects on
+   network failure / DNS error / timeout)
+   ===================================================================== */
+async function checkApp(app){
+  if (!app.url) return;
+  await patchApp(app.id, { last_status: 'checking' });
+  render();
+  const started = performance.now();
+  let status = 'offline', latency = null;
+  try {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 12000);
+    await fetch(app.url, { mode: 'no-cors', cache: 'no-store', signal: ctrl.signal });
+    clearTimeout(to);
+    status = 'online';
+    latency = Math.round(performance.now() - started);
+  } catch { status = 'offline'; }
+  await patchApp(app.id, { last_status: status, last_latency: latency, last_checked: new Date().toISOString() });
+  render();
+}
+
+async function checkAllApps(silent){
+  const targets = state.apps.filter(a => a.url);
+  if (!targets.length){ if (!silent) toast('No apps have a URL set yet.'); return; }
+  if (!silent) toast('Checking ' + targets.length + ' app(s)…');
+  await Promise.all(targets.map(a => checkApp(a)));
+  if (!silent) toast('Status check complete.', 'ok');
+}
+
+async function patchApp(id, patch){
+  const a = state.apps.find(x => x.id === id);
+  if (a) Object.assign(a, patch);
+  try { await DB().update('apps', id, patch); } catch(e){ console.warn(e); }
+}
+
+function startAutoMonitor(){
+  clearInterval(autoTimer);
+  const mins = Number(getSettings().checkInterval || 5);
+  if (mins > 0) autoTimer = setInterval(() => checkAllApps(true), mins * 60000);
+}
+
+/* =====================================================================
+   REMINDER ENGINE — checks due reminders, fires browser notifications
+   ===================================================================== */
+const notified = new Set();
+function reminderTick(){
+  const now = Date.now();
+  let due = 0;
+  for (const r of state.reminders){
+    if (r.done) continue;
+    const t = new Date(r.due_at).getTime();
+    if (t <= now){
+      due++;
+      if (!notified.has(r.id)){
+        notified.add(r.id);
+        notify('⏰ Reminder: ' + r.title, 'It is time! (' + fmtDate(r.due_at) + ')');
+        toast('⏰ ' + r.title, 'err');
+      }
+    }
+  }
+  const b = $('#remBadge');
+  b.style.display = due ? 'inline-block' : 'none';
+  b.textContent = due;
+}
+function notify(title, body){
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') new Notification(title, { body });
+}
+setInterval(reminderTick, 20000);
+
+/* =====================================================================
+   RENDERING
+   ===================================================================== */
+function fmtDate(iso){
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, {day:'numeric', month:'short'}) + ' ' +
+         d.toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit'});
+}
+function timeAgo(iso){
+  if (!iso) return 'never';
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  if (s < 86400) return Math.floor(s/3600) + 'h ago';
+  return Math.floor(s/86400) + 'd ago';
+}
+function statusPill(a){
+  const st = a.url ? (a.last_status || 'unknown') : 'unknown';
+  const lbl = { online:'● Online', offline:'● Offline', checking:'● Checking…', unknown:'● Not checked' }[st];
+  return `<span class="pill ${st}">${lbl}</span>`;
+}
+function appInitials(name){ return name.trim().split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase(); }
+
+function render(){
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  const m = $('#main');
+  if (view === 'dashboard') m.innerHTML = renderDashboard();
+  else if (view === 'apps') m.innerHTML = renderApps();
+  else if (view === 'monitor') m.innerHTML = renderMonitor();
+  else if (view === 'notes') m.innerHTML = renderNotes();
+  else if (view === 'reminders') m.innerHTML = renderReminders();
+  else if (view === 'settings') m.innerHTML = renderSettings();
+  reminderTick();
+}
+
+/* ---------------- Dashboard ---------------- */
+function renderDashboard(){
+  const online = state.apps.filter(a => a.last_status === 'online').length;
+  const offline = state.apps.filter(a => a.last_status === 'offline').length;
+  const pending = state.reminders.filter(r => !r.done);
+  const overdue = pending.filter(r => new Date(r.due_at) <= new Date());
+  const upcoming = pending.filter(r => new Date(r.due_at) > new Date())
+    .sort((a,b) => new Date(a.due_at) - new Date(b.due_at)).slice(0,5);
+  const pinned = state.notes.filter(n => n.pinned).slice(0,4);
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  return `
+  <div class="pagehead">
+    <div><h1>${greet}, Boss 👑</h1><p>Your personal secretary has everything ready.</p></div>
+    <div class="clock" id="clock">${new Date().toLocaleString()}</div>
+  </div>
+  <div class="grid stats">
+    <div class="stat"><div class="lbl">Applications</div><div class="val">${state.apps.length}</div><div class="sub">${online} online · ${offline} offline</div></div>
+    <div class="stat"><div class="lbl">Pending reminders</div><div class="val" style="color:${overdue.length?'var(--red)':'var(--text)'}">${pending.length}</div><div class="sub">${overdue.length} overdue</div></div>
+    <div class="stat"><div class="lbl">Notes</div><div class="val">${state.notes.length}</div><div class="sub">${pinned.length} pinned</div></div>
+    <div class="stat"><div class="lbl">Backend</div><div class="val" style="font-size:19px;padding-top:6px">${supa ? '🟢 Supabase' : '💾 Local'}</div><div class="sub">${supa ? 'synced to cloud' : 'this browser only'}</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h3>🚀 Quick Launch</h3>
+    ${state.apps.filter(a => a.url).length ? `<div class="quick-launch">
+      ${state.apps.filter(a => a.url).map(a => `
+        <a class="ql-btn" href="${esc(a.url)}" target="_blank" rel="noopener">
+          <span class="ql-ico" style="background:${esc(a.color)}">${esc(appInitials(a.name))}</span>${esc(a.name)} ↗
+        </a>`).join('')}
+    </div>` : `<div class="empty" style="padding:18px"><div>Add URLs to your apps in <b>My Applications</b> to launch them from here.</div></div>`}
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h3>⏰ Upcoming reminders</h3>
+      ${overdue.map(r => `<div class="mini-item">🔴 <b>${esc(r.title)}</b> — <span style="color:var(--red)">overdue (${fmtDate(r.due_at)})</span></div>`).join('')}
+      ${upcoming.map(r => `<div class="mini-item">🕐 <b>${esc(r.title)}</b> — ${fmtDate(r.due_at)}</div>`).join('')}
+      ${!overdue.length && !upcoming.length ? '<div class="empty" style="padding:14px">Nothing scheduled. Enjoy the calm 🍃</div>' : ''}
+      <div style="margin-top:14px"><button class="btn ghost small" onclick="openReminderModal()">+ Add reminder</button></div>
+    </div>
+    <div class="card">
+      <h3>📌 Pinned notes</h3>
+      <div class="mini-list">
+        ${pinned.map(n => `<div class="mini-item">📝 <b>${esc(n.title)}</b></div>`).join('') || '<div class="empty" style="padding:14px">No pinned notes yet.</div>'}
+      </div>
+      <div style="margin-top:14px"><button class="btn ghost small" onclick="openNoteModal()">+ Add note</button></div>
+    </div>
+  </div>`;
+}
+
+/* ---------------- Apps ---------------- */
+function renderApps(){
+  const cats = ['All', ...new Set(state.apps.map(a => a.category).filter(Boolean))];
+  let list = state.apps;
+  if (appCatFilter !== 'All') list = list.filter(a => a.category === appCatFilter);
+  if (appFilter) list = list.filter(a => (a.name + ' ' + a.url).toLowerCase().includes(appFilter.toLowerCase()));
+
+  return `
+  <div class="pagehead">
+    <div><h1>My Applications</h1><p>Every app you own — launch, edit and monitor from one place.</p></div>
+    <button class="btn" onclick="openAppModal()">+ Add application</button>
+  </div>
+  <div class="filter-row">
+    <input placeholder="🔍 Search apps…" value="${esc(appFilter)}" oninput="appFilter=this.value;render();this.focus();this.setSelectionRange(this.value.length,this.value.length)">
+    ${cats.map(c => `<button class="chip ${c===appCatFilter?'active':''}" onclick="appCatFilter='${esc(c)}';render()">${esc(c)}</button>`).join('')}
+  </div>
+  <div class="grid apps-grid">
+    ${list.map(a => `
+    <div class="app-card">
+      <div class="app-menu">
+        <button class="icon-btn" title="Check status" onclick="checkAppById('${a.id}')">📡</button>
+        <button class="icon-btn" title="Edit" onclick="openAppModal('${a.id}')">✏️</button>
+        <button class="icon-btn" title="Delete" onclick="deleteApp('${a.id}')">🗑️</button>
+      </div>
+      <div class="app-top">
+        <div class="app-icon" style="background:${esc(a.color || '#4f8cff')}">${esc(appInitials(a.name))}</div>
+        <div><div class="app-name">${esc(a.name)}</div><div class="app-cat">${esc(a.category || '')}</div></div>
+      </div>
+      <div class="app-url">${esc(a.url) || '<i>no URL set yet</i>'}</div>
+      <div class="app-status">${statusPill(a)} ${a.last_latency != null ? '<span class="mono">' + a.last_latency + 'ms</span>' : ''} <span style="margin-left:auto">${a.last_checked ? timeAgo(a.last_checked) : ''}</span></div>
+      <div class="app-actions">
+        ${a.url
+          ? `<a class="btn small" style="text-decoration:none;justify-content:center;flex:1" href="${esc(a.url)}" target="_blank" rel="noopener">Open ↗</a>`
+          : `<button class="btn ghost small" style="flex:1;justify-content:center" onclick="openAppModal('${a.id}')">Set URL</button>`}
+      </div>
+    </div>`).join('')}
+  </div>
+  ${!list.length ? `<div class="empty"><div class="big">🚀</div>No applications here yet.<br>Click <b>+ Add application</b> to register your first one.</div>` : ''}`;
+}
+
+/* ---------------- Monitor ---------------- */
+function renderMonitor(){
+  const s = getSettings();
+  return `
+  <div class="pagehead">
+    <div><h1>Monitoring</h1><p>Reachability checks run from this browser. Auto-check every <b>${esc(String(s.checkInterval || 5))} min</b>.</p></div>
+    <div style="display:flex;gap:10px">
+      <select style="width:auto" onchange="setInterval_(this.value)">
+        ${[1,5,10,30,60,0].map(v => `<option value="${v}" ${(Number(s.checkInterval||5)===v)?'selected':''}>${v===0?'Auto: off':'Auto: every '+v+' min'}</option>`).join('')}
+      </select>
+      <button class="btn" onclick="checkAllApps()">📡 Check all now</button>
+    </div>
+  </div>
+  <div class="card" style="padding:6px 6px">
+    <table>
+      <thead><tr><th>Application</th><th>URL</th><th>Status</th><th>Latency</th><th>Last checked</th><th></th></tr></thead>
+      <tbody>
+      ${state.apps.map(a => `
+        <tr>
+          <td><b>${esc(a.name)}</b><div style="font-size:11px;color:var(--dim)">${esc(a.category||'')}</div></td>
+          <td class="mono" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.url) || '—'}</td>
+          <td>${statusPill(a)}</td>
+          <td class="mono">${a.last_latency != null ? a.last_latency + 'ms' : '—'}</td>
+          <td class="mono">${a.last_checked ? timeAgo(a.last_checked) : 'never'}</td>
+          <td><button class="btn ghost small" onclick="checkAppById('${a.id}')" ${a.url?'':'disabled style="opacity:.4"'}>Check</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    ${!state.apps.length ? '<div class="empty">No applications to monitor yet.</div>' : ''}
+  </div>
+  <p class="hint" style="margin-top:12px">ℹ️ “Online” means the server answered the request. Browser checks can’t read status codes cross-origin, so a site returning an error page may still show as online — but downtime, DNS failures and unreachable servers are detected reliably.</p>`;
+}
+
+/* ---------------- Notes ---------------- */
+function renderNotes(){
+  const sorted = [...state.notes].sort((a,b) => (b.pinned?1:0)-(a.pinned?1:0) || new Date(b.updated_at||0)-new Date(a.updated_at||0));
+  return `
+  <div class="pagehead">
+    <div><h1>Notes</h1><p>Your private notebook — ideas, credentials hints, todo scraps, anything.</p></div>
+    <button class="btn" onclick="openNoteModal()">+ New note</button>
+  </div>
+  <div class="grid notes-grid">
+    ${sorted.map(n => `
+    <div class="note-card ${n.pinned?'pinned':''}">
+      <div class="note-title">${esc(n.title)}<button class="icon-btn" title="${n.pinned?'Unpin':'Pin'}" onclick="togglePin('${n.id}')">${n.pinned?'📌':'📍'}</button></div>
+      <div class="note-body">${esc(n.content)}</div>
+      <div class="note-foot">
+        <span>${timeAgo(n.updated_at)}</span>
+        <span class="acts">
+          <button class="icon-btn" onclick="openNoteModal('${n.id}')">✏️</button>
+          <button class="icon-btn" onclick="deleteNote('${n.id}')">🗑️</button>
+        </span>
+      </div>
+    </div>`).join('')}
+  </div>
+  ${!sorted.length ? '<div class="empty"><div class="big">📝</div>No notes yet. Your secretary is ready to take dictation.</div>' : ''}`;
+}
+
+/* ---------------- Reminders ---------------- */
+function renderReminders(){
+  const now = new Date();
+  const sorted = [...state.reminders].sort((a,b) => (a.done?1:0)-(b.done?1:0) || new Date(a.due_at)-new Date(b.due_at));
+  return `
+  <div class="pagehead">
+    <div><h1>Reminders</h1><p>Never miss a thing — overdue items turn red and fire a notification.</p></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn ghost" onclick="askNotifPermission()">🔔 Enable notifications</button>
+      <button class="btn" onclick="openReminderModal()">+ Add reminder</button>
+    </div>
+  </div>
+  ${sorted.map(r => {
+    const overdue = !r.done && new Date(r.due_at) <= now;
+    return `
+    <div class="rem-item ${r.done?'done':''} ${overdue?'overdue':''}">
+      <button class="rem-check ${r.done?'checked':''}" onclick="toggleReminder('${r.id}')">${r.done?'✓':''}</button>
+      <div class="rem-info">
+        <div class="rem-title">${esc(r.title)}</div>
+        <div class="rem-when ${overdue?'overdue-txt':''}">${overdue?'⚠ overdue — ':''}${fmtDate(r.due_at)}</div>
+      </div>
+      <button class="icon-btn" onclick="openReminderModal('${r.id}')">✏️</button>
+      <button class="icon-btn" onclick="deleteReminder('${r.id}')">🗑️</button>
+    </div>`;
+  }).join('')}
+  ${!sorted.length ? '<div class="empty"><div class="big">⏰</div>No reminders. Add one and I’ll nag you at exactly the right time.</div>' : ''}`;
+}
+
+/* ---------------- Settings ---------------- */
+const SCHEMA_SQL = `-- Run this in Supabase: SQL Editor → New query
+create table if not exists apps (
+  id uuid primary key,
+  name text not null,
+  url text default '',
+  category text default '',
+  color text default '#4f8cff',
+  last_status text default 'unknown',
+  last_latency int,
+  last_checked timestamptz,
+  created_at timestamptz default now()
+);
+create table if not exists notes (
+  id uuid primary key,
+  title text not null,
+  content text default '',
+  pinned boolean default false,
+  updated_at timestamptz default now(),
+  created_at timestamptz default now()
+);
+create table if not exists reminders (
+  id uuid primary key,
+  title text not null,
+  due_at timestamptz not null,
+  done boolean default false,
+  created_at timestamptz default now()
+);
+-- Personal single-user setup: allow access with the anon key.
+-- (Keep your project URL + anon key private, or add Supabase Auth later.)
+alter table apps enable row level security;
+alter table notes enable row level security;
+alter table reminders enable row level security;
+create policy "personal_all_apps" on apps for all using (true) with check (true);
+create policy "personal_all_notes" on notes for all using (true) with check (true);
+create policy "personal_all_reminders" on reminders for all using (true) with check (true);`;
+
+function renderSettings(){
+  const s = getSettings();
+  return `
+  <div class="pagehead"><div><h1>Settings</h1><p>Backend, notifications and data backup.</p></div></div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h3>☁️ Supabase backend (optional)</h3>
+    <p class="hint" style="margin-bottom:14px">Without Supabase everything is saved in this browser (localStorage). Connect Supabase to sync your apps, notes and reminders across all your devices.</p>
+    <div class="field"><label>Supabase project URL</label><input id="sbUrl" placeholder="https://xxxx.supabase.co" value="${esc(s.supabaseUrl||'')}"></div>
+    <div class="field"><label>Supabase anon key</label><input id="sbKey" type="password" placeholder="eyJhbGciOi…" value="${esc(s.supabaseKey||'')}"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" onclick="saveSupabase()">Save & connect</button>
+      <button class="btn ghost" onclick="pushLocalToSupabase()">⤴ Upload local data to Supabase</button>
+      <button class="btn danger" onclick="disconnectSupabase()">Disconnect</button>
+    </div>
+    <p class="hint" style="margin-top:14px">1. Create a free project at <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a> → 2. Run the SQL below in the SQL Editor → 3. Paste your project URL and anon key here (Project Settings → API).</p>
+    <details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px;color:var(--accent)">Show SQL setup script</summary>
+      <div style="margin-top:10px"><code class="sql">${esc(SCHEMA_SQL)}</code></div>
+      <button class="btn ghost small" style="margin-top:8px" onclick="navigator.clipboard.writeText(document.querySelector('code.sql').textContent).then(()=>toast('SQL copied!','ok'))">📋 Copy SQL</button>
+    </details>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h3>💾 Backup & restore</h3>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn ghost" onclick="exportData()">⬇ Export everything (JSON)</button>
+      <button class="btn ghost" onclick="$('#importFile').click()">⬆ Import from JSON</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)">
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>🔔 Notifications</h3>
+    <p class="hint" style="margin-bottom:12px">Status: <b>${('Notification' in window) ? Notification.permission : 'not supported'}</b>. Reminders fire a browser notification when due (while this tab is open).</p>
+    <button class="btn ghost" onclick="askNotifPermission()">Enable browser notifications</button>
+  </div>`;
+}
+
+/* =====================================================================
+   MODALS — app / note / reminder
+   ===================================================================== */
+function openModal(html){ $('#modalBox').innerHTML = html; $('#modalBack').classList.add('open'); }
+function closeModal(){ $('#modalBack').classList.remove('open'); }
+$('#modalBack').addEventListener('click', e => { if (e.target === $('#modalBack')) closeModal(); });
+
+let selColor = COLORS[0];
+function openAppModal(id){
+  const a = id ? state.apps.find(x => x.id === id) : null;
+  selColor = a?.color || COLORS[Math.floor(state.apps.length % COLORS.length)];
+  openModal(`
+    <h2>${a ? 'Edit application' : 'Add application'}</h2>
+    <div class="field"><label>Name</label><input id="fName" placeholder="e.g. SteelConnect Admin" value="${esc(a?.name||'')}"></div>
+    <div class="field"><label>URL</label><input id="fUrl" placeholder="https://…" value="${esc(a?.url||'')}"></div>
+    <div class="field"><label>Category</label>
+      <select id="fCat">${CATS.map(c => `<option ${a?.category===c?'selected':''}>${c}</option>`).join('')}</select>
+    </div>
+    <div class="field"><label>Color</label>
+      <div class="color-row">${COLORS.map(c => `<div class="color-opt ${c===selColor?'sel':''}" style="background:${c}" onclick="selColor='${c}';document.querySelectorAll('.color-opt').forEach(x=>x.classList.toggle('sel',x.style.background&&x.getAttribute('onclick').includes(selColor)))"></div>`).join('')}</div>
+    </div>
+    <div class="modal-acts">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn" onclick="saveApp('${a?.id||''}')">${a ? 'Save changes' : 'Add app'}</button>
+    </div>`);
+  setTimeout(() => $('#fName').focus(), 50);
+}
+async function saveApp(id){
+  const name = $('#fName').value.trim();
+  let url = $('#fUrl').value.trim();
+  if (!name) return toast('Please enter a name.', 'err');
+  if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+  const cat = $('#fCat').value;
+  try {
+    if (id) {
+      await patchApp(id, { name, url, category: cat, color: selColor });
+    } else {
+      const row = { id: uid(), name, url, category: cat, color: selColor, last_status: 'unknown', last_latency: null, last_checked: null, created_at: new Date().toISOString() };
+      await DB().insert('apps', row);
+      state.apps.unshift(row);
+    }
+    closeModal(); render();
+    toast(id ? 'Application updated.' : 'Application added 🚀', 'ok');
+  } catch(e){ toast('Save failed: ' + e.message, 'err'); }
+}
+async function deleteApp(id){
+  const a = state.apps.find(x => x.id === id);
+  if (!confirm('Delete "' + a.name + '"?')) return;
+  state.apps = state.apps.filter(x => x.id !== id);
+  try { await DB().remove('apps', id); } catch(e){ toast(e.message,'err'); }
+  render();
+}
+function checkAppById(id){ const a = state.apps.find(x => x.id === id); if (a?.url) checkApp(a); else toast('Set a URL first.', 'err'); }
+
+function openNoteModal(id){
+  const n = id ? state.notes.find(x => x.id === id) : null;
+  openModal(`
+    <h2>${n ? 'Edit note' : 'New note'}</h2>
+    <div class="field"><label>Title</label><input id="fTitle" value="${esc(n?.title||'')}" placeholder="Note title"></div>
+    <div class="field"><label>Content</label><textarea id="fContent" rows="7" placeholder="Write anything…">${esc(n?.content||'')}</textarea></div>
+    <div class="modal-acts">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn" onclick="saveNote('${n?.id||''}')">${n ? 'Save' : 'Add note'}</button>
+    </div>`);
+  setTimeout(() => $('#fTitle').focus(), 50);
+}
+async function saveNote(id){
+  const title = $('#fTitle').value.trim(), content = $('#fContent').value;
+  if (!title) return toast('Please enter a title.', 'err');
+  const now = new Date().toISOString();
+  try {
+    if (id) {
+      const n = state.notes.find(x => x.id === id);
+      Object.assign(n, { title, content, updated_at: now });
+      await DB().update('notes', id, { title, content, updated_at: now });
+    } else {
+      const row = { id: uid(), title, content, pinned: false, updated_at: now, created_at: now };
+      await DB().insert('notes', row);
+      state.notes.unshift(row);
+    }
+    closeModal(); render(); toast('Note saved 📝', 'ok');
+  } catch(e){ toast('Save failed: ' + e.message, 'err'); }
+}
+async function togglePin(id){
+  const n = state.notes.find(x => x.id === id);
+  n.pinned = !n.pinned;
+  try { await DB().update('notes', id, { pinned: n.pinned }); } catch(e){ toast(e.message,'err'); }
+  render();
+}
+async function deleteNote(id){
+  if (!confirm('Delete this note?')) return;
+  state.notes = state.notes.filter(x => x.id !== id);
+  try { await DB().remove('notes', id); } catch(e){ toast(e.message,'err'); }
+  render();
+}
+
+function openReminderModal(id){
+  const r = id ? state.reminders.find(x => x.id === id) : null;
+  const dflt = new Date(Date.now() + 3600000);
+  dflt.setMinutes(0, 0, 0);
+  const val = r ? r.due_at.slice(0,16) : new Date(dflt.getTime() - dflt.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  openModal(`
+    <h2>${r ? 'Edit reminder' : 'Add reminder'}</h2>
+    <div class="field"><label>What should I remind you about?</label><input id="fTitle" value="${esc(r?.title||'')}" placeholder="e.g. Renew Laxora domain"></div>
+    <div class="field"><label>When</label><input id="fWhen" type="datetime-local" value="${esc(val)}"></div>
+    <div class="modal-acts">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn" onclick="saveReminder('${r?.id||''}')">${r ? 'Save' : 'Add reminder'}</button>
+    </div>`);
+  setTimeout(() => $('#fTitle').focus(), 50);
+}
+async function saveReminder(id){
+  const title = $('#fTitle').value.trim(), when = $('#fWhen').value;
+  if (!title) return toast('Please enter a title.', 'err');
+  if (!when) return toast('Please pick a date & time.', 'err');
+  const due_at = new Date(when).toISOString();
+  try {
+    if (id) {
+      const r = state.reminders.find(x => x.id === id);
+      Object.assign(r, { title, due_at });
+      notified.delete(id);
+      await DB().update('reminders', id, { title, due_at });
+    } else {
+      const row = { id: uid(), title, due_at, done: false, created_at: new Date().toISOString() };
+      await DB().insert('reminders', row);
+      state.reminders.unshift(row);
+    }
+    closeModal(); render(); toast('Reminder set ⏰', 'ok');
+    askNotifPermission(true);
+  } catch(e){ toast('Save failed: ' + e.message, 'err'); }
+}
+async function toggleReminder(id){
+  const r = state.reminders.find(x => x.id === id);
+  r.done = !r.done;
+  try { await DB().update('reminders', id, { done: r.done }); } catch(e){ toast(e.message,'err'); }
+  render();
+}
+async function deleteReminder(id){
+  if (!confirm('Delete this reminder?')) return;
+  state.reminders = state.reminders.filter(x => x.id !== id);
+  try { await DB().remove('reminders', id); } catch(e){ toast(e.message,'err'); }
+  render();
+}
+function askNotifPermission(silent){
+  if (!('Notification' in window)) { if(!silent) toast('This browser does not support notifications.', 'err'); return; }
+  if (Notification.permission === 'granted') { if(!silent) toast('Notifications are already enabled 🔔', 'ok'); return; }
+  Notification.requestPermission().then(p => { if (p === 'granted' && !silent) toast('Notifications enabled 🔔', 'ok'); });
+}
+
+/* =====================================================================
+   SETTINGS ACTIONS
+   ===================================================================== */
+async function saveSupabase(){
+  const s = getSettings();
+  s.supabaseUrl = $('#sbUrl').value.trim().replace(/\/+$/, '');
+  s.supabaseKey = $('#sbKey').value.trim();
+  saveSettings(s);
+  if (!s.supabaseUrl || !s.supabaseKey) return toast('Enter both URL and anon key.', 'err');
+  toast('Connecting to Supabase…');
+  if (await connectSupabase()){
+    toast('Connected to Supabase ✅ Loading cloud data…', 'ok');
+    await loadAll(); render();
+  }
+}
+async function disconnectSupabase(){
+  const s = getSettings();
+  delete s.supabaseUrl; delete s.supabaseKey;
+  saveSettings(s); supa = null;
+  $('#syncDot').classList.remove('on'); $('#syncLabel').textContent = 'Local storage';
+  await loadAll(); render();
+  toast('Disconnected — back to local storage.');
+}
+async function pushLocalToSupabase(){
+  if (!supa) return toast('Connect Supabase first.', 'err');
+  try {
+    const [la, ln, lr] = await Promise.all([LocalDB.list('apps'), LocalDB.list('notes'), LocalDB.list('reminders')]);
+    let n = 0;
+    for (const [table, rows] of [['apps', la], ['notes', ln], ['reminders', lr]]){
+      for (const row of rows){ const {error} = await supa.from(table).upsert(row); if (!error) n++; }
+    }
+    toast('Uploaded ' + n + ' item(s) to Supabase ⤴', 'ok');
+    await loadAll(); render();
+  } catch(e){ toast('Upload failed: ' + e.message, 'err'); }
+}
+function exportData(){
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'superadmin-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  toast('Backup downloaded ⬇', 'ok');
+}
+function importData(input){
+  const f = input.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const data = JSON.parse(reader.result);
+      for (const t of ['apps','notes','reminders']){
+        for (const row of (data[t] || [])){
+          if (!state[t].some(x => x.id === row.id)){
+            await DB().insert(t, row);
+            state[t].push(row);
+          }
+        }
+      }
+      render(); toast('Import complete ✅', 'ok');
+    } catch(e){ toast('Import failed: ' + e.message, 'err'); }
+  };
+  reader.readAsText(f);
+}
+function setInterval_(v){
+  const s = getSettings(); s.checkInterval = Number(v); saveSettings(s);
+  startAutoMonitor(); render();
+  toast(Number(v) ? 'Auto-check every ' + v + ' min.' : 'Auto-check turned off.');
+}
+
+/* ---------------- toast ---------------- */
+function toast(msg, kind){
+  const t = document.createElement('div');
+  t.className = 'toast ' + (kind || '');
+  t.textContent = msg;
+  $('#toasts').appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .4s'; setTimeout(() => t.remove(), 400); }, 3600);
+}
+
+/* ---------------- nav + boot ---------------- */
+document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', () => { view = b.dataset.view; render(); }));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+clockTimer = setInterval(() => { const c = $('#clock'); if (c) c.textContent = new Date().toLocaleString(); }, 1000);
+
+(async function boot(){
+  await connectSupabase();
+  await seedIfEmpty();
+  await loadAll();
+  render();
+  startAutoMonitor();
+})();
+</script>
+</body>
+</html>

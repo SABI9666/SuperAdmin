@@ -40,9 +40,12 @@ create table if not exists special_reminders (
   title text default '',
   message text not null,
   level text default 'info',        -- info | warning | urgent (controls styling)
+  target_shop text default '',      -- shop name to target; blank = all shops
   active boolean default true,
   created_at timestamptz default now()
 );
+-- If the table already existed from an earlier version, add the new column:
+alter table special_reminders add column if not exists target_shop text default '';
 
 -- Personal single-user setup: allow access with the anon key.
 -- Keep your project URL + anon key private. If you ever want real

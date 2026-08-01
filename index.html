@@ -327,6 +327,23 @@ async function seedIfEmpty(){
   localStorage.setItem('superadmin_seeded', '1');
 }
 
+// Kinder Hospitals link cards — added once even for existing installs.
+// Just click "Set URL" on each card after the sites are deployed.
+async function seedKinderApps(){
+  if (supa) return;
+  if (localStorage.getItem('superadmin_seeded_kinder')) return;
+  const seeds = [
+    { name:'Kinder Hospitals Website', category:'Web App',     color:'#6D49C9' },
+    { name:'Kinder Hospitals Admin',   category:'Admin Panel', color:'#F26D8B' },
+    { name:'Kinder Hospitals API',     category:'Backend',     color:'#3F2A86' },
+  ];
+  for (const s of seeds) {
+    await LocalDB.insert('apps', { id: uid(), name: s.name, url: '', category: s.category, color: s.color,
+      last_status: 'unknown', last_latency: null, last_checked: null, created_at: new Date().toISOString() });
+  }
+  localStorage.setItem('superadmin_seeded_kinder', '1');
+}
+
 /* =====================================================================
    MONITORING — browser-side reachability check
    (no-cors fetch: resolves if the server answered at all, rejects on
@@ -1060,6 +1077,7 @@ clockTimer = setInterval(() => { const c = $('#clock'); if (c) c.textContent = n
 (async function boot(){
   await connectSupabase();
   await seedIfEmpty();
+  await seedKinderApps();
   await loadAll();
   render();
   startAutoMonitor();

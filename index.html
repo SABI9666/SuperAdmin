@@ -193,7 +193,7 @@ code.sql{display:block;background:#0a0e16;border:1px solid var(--border);border-
    ===================================================================== */
 
 const COLORS = ['#4f8cff','#7c5cff','#2fd47f','#ff5c6c','#ffb454','#3fd6d0','#f472b6','#a3e635'];
-const CATS = ['Web App','Admin Panel','API / Backend','Dashboard','Website','Tool','Other'];
+const CATS = ['Web App','Admin Panel','API / Backend','Dashboard','Website','Banking / Finance','Tool','Other'];
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -325,6 +325,30 @@ async function seedIfEmpty(){
       last_status: 'unknown', last_latency: null, last_checked: null, created_at: new Date().toISOString() });
   }
   localStorage.setItem('superadmin_seeded', '1');
+}
+
+/* ---------------------------------------------------------------------
+   AXIS BANK ACCOUNT-OPENING LINK
+   Added once to whichever backend is active, so it shows up on existing
+   installs too (the first-run seed above already ran for those).
+   The flag keeps it from coming back if you delete or rename the card.
+   --------------------------------------------------------------------- */
+const AXIS_LINK_FLAG = 'superadmin_axis_link';
+const AXIS_BANK_LINK = {
+  name: 'Axis Bank — Account Opening',
+  url: 'https://www.axisbank.com/',
+  category: 'Banking / Finance',
+  color: '#97144d'
+};
+async function ensureAxisBankLink(){
+  if (localStorage.getItem(AXIS_LINK_FLAG)) return;
+  if (!state.apps.some(a => /axis\s*bank/i.test(a.name))){
+    const row = { id: uid(), ...AXIS_BANK_LINK, last_status: 'unknown', last_latency: null,
+      last_checked: null, created_at: new Date().toISOString() };
+    try { await DB().insert('apps', row); } catch(e){ console.warn(e); return; }
+    state.apps.unshift(row);
+  }
+  localStorage.setItem(AXIS_LINK_FLAG, '1');
 }
 
 /* =====================================================================
@@ -1061,6 +1085,7 @@ clockTimer = setInterval(() => { const c = $('#clock'); if (c) c.textContent = n
   await connectSupabase();
   await seedIfEmpty();
   await loadAll();
+  await ensureAxisBankLink();
   render();
   startAutoMonitor();
 })();
